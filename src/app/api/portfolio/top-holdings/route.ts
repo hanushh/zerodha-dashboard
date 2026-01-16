@@ -83,11 +83,21 @@ export async function POST(request: NextRequest) {
               const existing = holdingsMap.get(key)!;
               existing.totalValue += holdingValueInFund;
               existing.totalPercentage += holdingPercentageInPortfolio;
-              existing.funds.push({
-                name: mf.fund,
-                percentage: holding.percentage,
-                value: holdingValueInFund,
-              });
+              
+              // Check if this fund is already in the funds array (avoid duplicates)
+              const existingFundEntry = existing.funds.find(f => f.name === mf.fund);
+              if (existingFundEntry) {
+                // Fund already exists, add to its values
+                existingFundEntry.percentage += holding.percentage;
+                existingFundEntry.value += holdingValueInFund;
+              } else {
+                // New fund, add to array
+                existing.funds.push({
+                  name: mf.fund,
+                  percentage: holding.percentage,
+                  value: holdingValueInFund,
+                });
+              }
               
               // Update P/E if not set
               if (!existing.pe && holding.pe) existing.pe = holding.pe;

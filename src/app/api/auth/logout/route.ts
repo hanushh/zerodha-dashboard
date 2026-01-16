@@ -1,16 +1,15 @@
 import { NextResponse } from 'next/server';
-import { logout } from '@/lib/kite';
 
 export async function POST() {
   try {
-    logout();
-    
+    // No need to clear server-side state as we are stateless
+
     const response = NextResponse.json({ success: true });
-    
+
     // Clear cookies
     response.cookies.delete('kite_access_token');
     response.cookies.delete('kite_user');
-    
+
     return response;
   } catch (error) {
     console.error('Error logging out:', error);

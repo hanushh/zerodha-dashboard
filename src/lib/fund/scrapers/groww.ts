@@ -102,10 +102,10 @@ export async function scrapeGroww(isin: string, fundName: string): Promise<FundP
       return null;
     }
     
-    // Navigate to mf data
+    // Navigate to mf data (Groww uses mfServerSideData or mf depending on version)
     const props = nextData.props as Record<string, unknown> | undefined;
     const pageProps = props?.pageProps as Record<string, unknown> | undefined;
-    const mfData = pageProps?.mf as Record<string, unknown> | undefined;
+    const mfData = (pageProps?.mfServerSideData || pageProps?.mf) as Record<string, unknown> | undefined;
     
     if (!mfData) {
       return null;
@@ -130,13 +130,17 @@ export async function scrapeGroww(isin: string, fundName: string): Promise<FundP
     })).filter((s: SectorAllocation) => s.percentage > 0);
     
     if (holdings.length > 0) {
-      const navData = mfData.nav as Record<string, unknown> | undefined;
+      // NAV can be a number directly or nested in an object
+      const navValue = typeof mfData.nav === 'number' 
+        ? mfData.nav 
+        : (mfData.nav as Record<string, unknown> | undefined)?.nav as number | undefined;
+      
       return {
-        fundName: (mfData.scheme_name as string) || fundName,
+        fundName: (mfData.scheme_name as string) || (mfData.fund_name as string) || fundName,
         isin: (mfData.isin as string) || isin,
-        category: mfData.sub_category as string,
-        fundHouse: mfData.amc as string,
-        nav: navData?.nav as number | undefined,
+        category: (mfData.sub_category as string) || (mfData.category as string),
+        fundHouse: (mfData.amc as string) || (mfData.fund_house as string),
+        nav: navValue,
         holdings,
         sectorAllocation,
         assetAllocation: [],

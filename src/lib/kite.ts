@@ -9,29 +9,24 @@ const API_KEY = process.env.KITE_API_KEY || '';
 const API_SECRET = process.env.KITE_API_SECRET || '';
 
 // Define type for Kite instance
-type KiteInstance = InstanceType<typeof KiteConnect>;
-
-// Store access token in memory (in production, use a proper session store)
-let accessToken: string | null = null;
-let kiteInstance: KiteInstance | null = null;
+export type KiteInstance = InstanceType<typeof KiteConnect>;
 
 /**
- * Get or create Kite instance
+ * Create a new Kite instance
  */
-export function getKiteInstance(): KiteInstance {
-  if (!kiteInstance) {
-    kiteInstance = new KiteConnect({
-      api_key: API_KEY,
-    });
-  }
-  return kiteInstance;
+export function createKiteInstance(accessToken?: string): KiteInstance {
+  const kite = new KiteConnect({
+    api_key: API_KEY,
+    access_token: accessToken
+  });
+  return kite;
 }
 
 /**
  * Get login URL
  */
 export function getLoginUrl(): string {
-  const kite = getKiteInstance();
+  const kite = createKiteInstance();
   return kite.getLoginURL();
 }
 
@@ -39,90 +34,51 @@ export function getLoginUrl(): string {
  * Generate session from request token
  */
 export async function generateSession(requestToken: string) {
-  const kite = getKiteInstance();
+  const kite = createKiteInstance();
   const session = await kite.generateSession(requestToken, API_SECRET);
-  accessToken = session.access_token;
-  kite.setAccessToken(accessToken);
   return session;
-}
-
-/**
- * Set access token
- */
-export function setAccessToken(token: string) {
-  accessToken = token;
-  const kite = getKiteInstance();
-  kite.setAccessToken(token);
-}
-
-/**
- * Get current access token
- */
-export function getAccessToken(): string | null {
-  return accessToken;
-}
-
-/**
- * Check if authenticated
- */
-export function isAuthenticated(): boolean {
-  return accessToken !== null;
 }
 
 /**
  * Fetch user profile
  */
-export async function getProfile() {
-  const kite = getKiteInstance();
+export async function getProfile(kite: KiteInstance) {
   return await kite.getProfile();
 }
 
 /**
  * Fetch margins
  */
-export async function getMargins() {
-  const kite = getKiteInstance();
+export async function getMargins(kite: KiteInstance) {
   return await kite.getMargins();
 }
 
 /**
  * Fetch equity holdings
  */
-export async function getHoldings() {
-  const kite = getKiteInstance();
+export async function getHoldings(kite: KiteInstance) {
   return await kite.getHoldings();
 }
 
 /**
  * Fetch positions
  */
-export async function getPositions() {
-  const kite = getKiteInstance();
+export async function getPositions(kite: KiteInstance) {
   return await kite.getPositions();
 }
 
 /**
  * Fetch mutual fund holdings
  */
-export async function getMFHoldings() {
-  const kite = getKiteInstance();
+export async function getMFHoldings(kite: KiteInstance) {
   return await kite.getMFHoldings();
 }
 
 /**
  * Fetch orders
  */
-export async function getOrders() {
-  const kite = getKiteInstance();
+export async function getOrders(kite: KiteInstance) {
   return await kite.getOrders();
-}
-
-/**
- * Logout - clear access token
- */
-export function logout() {
-  accessToken = null;
-  kiteInstance = null;
 }
 
 // Types for portfolio data

@@ -1,19 +1,18 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { 
-  getProfile, 
-  getMargins, 
-  getHoldings, 
-  getPositions, 
+import {
+  getProfile,
+  getMargins,
+  getHoldings,
+  getPositions,
   getMFHoldings,
-  setAccessToken,
-  isAuthenticated 
+  createKiteInstance
 } from '@/lib/kite';
 
 export async function GET(request: NextRequest) {
   try {
     // Get access token from cookie
     const accessToken = request.cookies.get('kite_access_token')?.value;
-    
+
     if (!accessToken) {
       return NextResponse.json(
         { error: 'Not authenticated' },
@@ -21,16 +20,16 @@ export async function GET(request: NextRequest) {
       );
     }
 
-    // Set the access token
-    setAccessToken(accessToken);
+    // Create a new Kite instance for this request
+    const kite = createKiteInstance(accessToken);
 
     // Fetch all portfolio data in parallel
     const [profile, margins, holdings, positions, mfHoldings] = await Promise.all([
-      getProfile().catch(() => null),
-      getMargins().catch(() => null),
-      getHoldings().catch(() => []),
-      getPositions().catch(() => ({ net: [], day: [] })),
-      getMFHoldings().catch(() => []),
+      getProfile(kite).catch(() => null),
+      getMargins(kite).catch(() => null),
+      getHoldings(kite).catch(() => []),
+      getPositions(kite).catch(() => ({ net: [], day: [] })),
+      getMFHoldings(kite).catch(() => []),
     ]);
 
     // Calculate holdings summary
@@ -48,7 +47,7 @@ export async function GET(request: NextRequest) {
     });
   } catch (error: unknown) {
     console.error('Error fetching portfolio:', error);
-    
+
     // Check if it's a token error
     const errorMessage = error instanceof Error ? error.message : 'Unknown error';
     if (errorMessage.includes('Token') || errorMessage.includes('Invalid')) {
@@ -57,7 +56,7 @@ export async function GET(request: NextRequest) {
         { status: 401 }
       );
     }
-    
+
     return NextResponse.json(
       { error: 'Failed to fetch portfolio' },
       { status: 500 }

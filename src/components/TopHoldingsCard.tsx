@@ -24,6 +24,7 @@ interface HoldingsData {
 
 interface TopHoldingsCardProps {
   mfHoldings: MFHolding[];
+  onHoldingsLoaded?: (holdings: AggregatedHolding[], totalValue: number) => void;
 }
 
 const CACHE_KEY = 'portfolio_top_holdings';
@@ -186,7 +187,7 @@ function HoldingRowItem({ holding, rank, isExpanded, onToggle }: HoldingRowProps
   );
 }
 
-export function TopHoldingsCard({ mfHoldings }: TopHoldingsCardProps) {
+export function TopHoldingsCard({ mfHoldings, onHoldingsLoaded }: TopHoldingsCardProps) {
   const [allHoldings, setAllHoldings] = useState<AggregatedHolding[]>([]);
   const [isLoading, setIsLoading] = useState(false);
   const [isLoaded, setIsLoaded] = useState(false);
@@ -203,8 +204,11 @@ export function TopHoldingsCard({ mfHoldings }: TopHoldingsCardProps) {
       setTotalValue(cached.totalPortfolioValue);
       setLastUpdated(cached.timestamp);
       setIsLoaded(true);
+      
+      // Notify parent of loaded holdings
+      onHoldingsLoaded?.(cached.holdings, cached.totalPortfolioValue);
     }
-  }, []);
+  }, [onHoldingsLoaded]);
 
   // Filter holdings based on search
   const filteredHoldings = useMemo(() => {
@@ -248,6 +252,9 @@ export function TopHoldingsCard({ mfHoldings }: TopHoldingsCardProps) {
           totalFunds: data.totalFunds,
           timestamp,
         });
+        
+        // Notify parent of loaded holdings
+        onHoldingsLoaded?.(data.holdings, data.totalPortfolioValue);
       }
     } catch (error) {
       console.error('Error loading holdings:', error);

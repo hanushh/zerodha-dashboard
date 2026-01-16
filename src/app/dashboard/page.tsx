@@ -1,13 +1,26 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useRouter } from 'next/navigation';
 import { PortfolioCard } from '@/components/PortfolioCard';
 import { HoldingsTable } from '@/components/HoldingsTable';
 import { MFHoldingsTable } from '@/components/MFHoldingsTable';
 import { TopHoldingsCard } from '@/components/TopHoldingsCard';
+import { PortfolioOverlapCard } from '@/components/PortfolioOverlapCard';
 import { LoadingSpinner } from '@/components/LoadingSpinner';
 import { Holding, MFHolding, UserProfile, Margins } from '@/lib/kite';
+
+// Types for aggregated holdings (shared with TopHoldingsCard)
+interface AggregatedHolding {
+  name: string;
+  symbol?: string;
+  totalValue: number;
+  totalPercentage: number;
+  funds: { name: string; percentage: number; value: number }[];
+  pe?: number;
+  marketCap?: string;
+  sector?: string;
+}
 
 interface PortfolioSummary {
   totalInvested: number;
@@ -34,13 +47,22 @@ interface CachedPortfolio {
 }
 
 const PORTFOLIO_CACHE_KEY = 'kite_portfolio_data';
+const CACHE_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes - cache expires after this
 
-// Get cached portfolio from localStorage
+// Get cached portfolio from localStorage (returns null if cache is stale)
 function getCachedPortfolio(): PortfolioData | null {
   try {
     const cached = localStorage.getItem(PORTFOLIO_CACHE_KEY);
     if (!cached) return null;
     const parsed: CachedPortfolio = JSON.parse(cached);
+    
+    // Check if cache is stale (older than CACHE_MAX_AGE_MS)
+    const age = Date.now() - parsed.timestamp;
+    if (age > CACHE_MAX_AGE_MS) {
+      console.log('Portfolio cache expired, will fetch fresh data');
+      return null;
+    }
+    
     return parsed.data;
   } catch {
     return null;
@@ -104,6 +126,18 @@ export default function Dashboard() {
   const [userName, setUserName] = useState<string>('');
   const [lastUpdated, setLastUpdated] = useState<number | null>(null);
   const router = useRouter();
+  
+  // State for aggregated holdings (used by overlap detection)
+  const [aggregatedHoldings, setAggregatedHoldings] = useState<AggregatedHolding[]>([]);
+  const [aggregatedTotalValue, setAggregatedTotalValue] = useState(0);
+  const [isHoldingsLoaded, setIsHoldingsLoaded] = useState(false);
+  
+  // Callback to receive holdings data from TopHoldingsCard
+  const handleHoldingsLoaded = useCallback((holdings: AggregatedHolding[], totalValue: number) => {
+    setAggregatedHoldings(holdings);
+    setAggregatedTotalValue(totalValue);
+    setIsHoldingsLoaded(true);
+  }, []);
 
   useEffect(() => {
     // Get user info from cookie
@@ -132,6 +166,22 @@ export default function Dashboard() {
       setIsLoading(false);
     } else {
       fetchPortfolio();
+    }
+    
+    // Load cached aggregated holdings for overlap detection
+    try {
+      const holdingsCache = localStorage.getItem('portfolio_top_holdings');
+      if (holdingsCache) {
+        const parsed = JSON.parse(holdingsCache);
+        const holdings = parsed.holdings || parsed.topHoldings || [];
+        if (holdings.length > 0) {
+          setAggregatedHoldings(holdings);
+          setAggregatedTotalValue(parsed.totalPortfolioValue || 0);
+          setIsHoldingsLoaded(true);
+        }
+      }
+    } catch {
+      // Ignore cache errors
     }
   }, []);
 
@@ -351,7 +401,19 @@ export default function Dashboard() {
             
             {/* Top Holdings Analysis */}
             {portfolio?.mfHoldings && portfolio.mfHoldings.length > 0 && (
-              <TopHoldingsCard mfHoldings={portfolio.mfHoldings} />
+              <TopHoldingsCard 
+                mfHoldings={portfolio.mfHoldings} 
+                onHoldingsLoaded={handleHoldingsLoaded}
+              />
+            )}
+            
+            {/* Portfolio Overlap Detection */}
+            {portfolio?.mfHoldings && portfolio.mfHoldings.length > 0 && (
+              <PortfolioOverlapCard
+                holdings={aggregatedHoldings}
+                totalPortfolioValue={aggregatedTotalValue}
+                isLoaded={isHoldingsLoaded}
+              />
             )}
           </div>
         )}
